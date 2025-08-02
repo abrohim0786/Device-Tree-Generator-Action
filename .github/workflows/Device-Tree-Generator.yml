@@ -6,32 +6,37 @@ on:
       DEVICE_IMG:
         description: '(.img) file link'
         required: true
+        type: string
         default: 'https://github.com/abrohim0786/OrangeFox-Recovery-Builder-2025/releases/download/16670367505/boot.img'
       DEVICE_BRANCH:
         description: 'Your device branch name (Optional)'
         required: true
+        type: string
         default: 'android-12.1'
       GITHUB_TOKEN:
         description: 'Your GitHub access token (Required for pushing to repository)'
         required: true
+        type: string
         default: ''
       EMPTY_REPO:
         description: 'Your empty repo name on GitHub (e.g., android_device_xiaomi_ares)'
         required: true
+        type: string
         default: 'android_device_xiaomi_ares'
       COMMIT_MESSAGE:
         description: 'Your commit message (Optional)'
         required: true
+        type: string
         default: 'TWRP device tree Xiaomi Redmi K40 Gaming Poco F3GT'
       PUSH_GITHUB:
         description: 'Push to GitHub Repository.'
-        type: boolean
         required: true
+        type: boolean
         default: false
       RELEASE_FILE:
         description: 'Upload file to GitHub Release too.'
-        type: boolean
         required: true
+        type: boolean
         default: true
 
 jobs:
@@ -41,96 +46,92 @@ jobs:
     if: github.event.repository.owner.id == github.event.sender.id
     permissions:
       contents: write
-      # Add permissions to create releases
-  releases: write
-  env:
-      GITHUB_TOKEN: ${{ github.event.inputs.GITHUB_TOKEN }}
-
+      releases: write
+    
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v3
 
-    - name: Setup Python and Install Tools
-      run: |
-        pip3 install --upgrade pip
-        pip3 install twrpdtgen
-        sudo apt-get update
-        sudo apt-get install -y cpio zip
+      - name: Setup Python and Install Tools
+        run: |
+          pip3 install --upgrade pip
+          pip3 install twrpdtgen
+          sudo apt-get update
+          sudo apt-get install -y cpio zip
 
-    - name: Download .img file
-      run: |
-        wget -O boot.img "${{ github.event.inputs.DEVICE_IMG }}"
-        if [ -f ./recovery.img ]; then
-          echo "RECOVERY_TYPE=recovery" >> $GITHUB_ENV
-        elif [ -f ./boot.img ]; then
-          echo "RECOVERY_TYPE=boot" >> $GITHUB_ENV
-        elif [ -f ./vendor_boot.img ]; then
-          echo "RECOVERY_TYPE=vendor_boot" >> $GITHUB_ENV
-        else
-          echo "No Recovery image found!"; exit 1
-        fi
+      - name: Download .img file
+        run: |
+          wget -O boot.img "${{ inputs.DEVICE_IMG }}"
+          if [ -f ./recovery.img ]; then
+            echo "RECOVERY_TYPE=recovery" >> $GITHUB_ENV
+          elif [ -f ./boot.img ]; then
+            echo "RECOVERY_TYPE=boot" >> $GITHUB_ENV
+          elif [ -f ./vendor_boot.img ]; then
+            echo "RECOVERY_TYPE=vendor_boot" >> $GITHUB_ENV
+          else
+            echo "No Recovery image found!"; exit 1
+          fi
 
-    - name: Generate Device Tree
-      run: |
-        python3 -m twrpdtgen ./${{ env.RECOVERY_TYPE }}.img
+      - name: Generate Device Tree
+        run: |
+          python3 -m twrpdtgen ./${{ env.RECOVERY_TYPE }}.img
 
-    - name: Set Build Date
-      run: |
-        echo "BUILD_DATE=$(date +%Y%m%d)" >> $GITHUB_ENV
+      - name: Set Build Date
+        run: |
+          echo "BUILD_DATE=$(date +%Y%m%d)" >> $GITHUB_ENV
 
-    - name: Print output tree for debug
-      run: |
-        echo "==== OUTPUT FOLDER STRUCTURE ===="
-        ls -lR output || echo "No output directory found!"
-        echo "================================="
+      - name: Print output tree for debug
+        run: |
+          echo "==== OUTPUT FOLDER STRUCTURE ===="
+          ls -lR output || echo "No output directory found!"
+          echo "================================="
 
-    - name: Prepare device folder and extract info
-      id: deviceinfo
-      run: |
-        if [ -d output ]; then
-          mv output device
-        else
-          echo "No output directory found!"; exit 1
-        fi
-        # Find deepest dir with Android.mk or BoardConfig.mk
-        DEVICE_PATH=$(find device -type f \( -name "Android.mk" -o -name "BoardConfig.mk" \) | head -n 1)
-        if [ -z "$DEVICE_PATH" ]; then
-          DEVICE_DIR=$(find device -type d | sort | tail -n 1)
-        else
-          DEVICE_DIR=$(dirname "$DEVICE_PATH")
-        fi
-        echo "DEVICE_DIR=$DEVICE_DIR" >> $GITHUB_ENV
-        DEVICE_ID=$(basename "$(dirname "$DEVICE_DIR")")
-        DEVICE_IDD=$(basename "$DEVICE_DIR")
-        echo "DEVICE_ID=$DEVICE_ID" >> $GITHUB_ENV
-        echo "DEVICE_IDD=$DEVICE_IDD" >> $GITHUB_ENV
-        echo "Device tree detected at: $DEVICE_DIR"
-        echo "Device folder name: $DEVICE_ID"
-        echo "Device subfolder name: $DEVICE_IDD"
+      - name: Prepare device folder and extract info
+        id: deviceinfo
+        run: |
+          if [ -d output ]; then
+            mv output device
+          else
+            echo "No output directory found!"; exit 1
+          fi
+          DEVICE_PATH=$(find device -type f \( -name "Android.mk" -o -name "BoardConfig.mk" \) | head -n 1)
+          if [ -z "$DEVICE_PATH" ]; then
+            DEVICE_DIR=$(find device -type d | sort | tail -n 1)
+          else
+            DEVICE_DIR=$(dirname "$DEVICE_PATH")
+          fi
+          echo "DEVICE_DIR=$DEVICE_DIR" >> $GITHUB_ENV
+          DEVICE_ID=$(basename "$(dirname "$DEVICE_DIR")")
+          DEVICE_IDD=$(basename "$DEVICE_DIR")
+          echo "DEVICE_ID=$DEVICE_ID" >> $GITHUB_ENV
+          echo "DEVICE_IDD=$DEVICE_IDD" >> $GITHUB_ENV
+          echo "Device tree detected at: $DEVICE_DIR"
+          echo "Device folder name: $DEVICE_ID"
+          echo "Device subfolder name: $DEVICE_IDD"
 
-    - name: Add to Zip
-      run: |
-        zip -r "${{ env.DEVICE_ID }}_${{ env.DEVICE_IDD }}_tree.zip" ./device/
+      - name: Add to Zip
+        run: |
+          zip -r "${{ env.DEVICE_ID }}_${{ env.DEVICE_IDD }}_tree.zip" ./device/
 
-    - name: Release
-      if: ${{ github.event.inputs.RELEASE_FILE }}
-      uses: softprops/action-gh-release@v1
-      with:
-        files: "${{ env.DEVICE_ID }}_${{ env.DEVICE_IDD }}_tree.zip"
-        name: "${{ env.DEVICE_ID }} ${{ env.DEVICE_IDD }} device tree // ${{ env.BUILD_DATE }}"
-        tag_name: "${{ github.run_id }}"
-        body: "Automated device tree release for ${{ env.DEVICE_ID }} ${{ env.DEVICE_IDD }} on ${{ env.BUILD_DATE }}"
-        token: ${{ github.token }}
+      - name: Release
+        if: ${{ inputs.RELEASE_FILE == 'true' }}
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ${{ env.DEVICE_ID }}_${{ env.DEVICE_IDD }}_tree.zip
+          name: ${{ env.DEVICE_ID }} ${{ env.DEVICE_IDD }} device tree // ${{ env.BUILD_DATE }}
+          tag_name: ${{ github.run_id }}
+          body: Automated device tree release for ${{ env.DEVICE_ID }} ${{ env.DEVICE_IDD }} on ${{ env.BUILD_DATE }}
+          token: ${{ inputs.GITHUB_TOKEN }}
 
-    - name: Push to GitHub
-      if: ${{ github.event.inputs.PUSH_GITHUB }}
-      run: |
-        git config --global user.email "callofduty.pubg786@gmail.com"
-        git config --global user.name "abrohim0786"
-        cd "$DEVICE_DIR" || { echo "Device tree directory not found!"; exit 1; }
-        git init
-        git add .
-        git commit -m "${{ github.event.inputs.COMMIT_MESSAGE }}"
-        git branch -M "${{ github.event.inputs.DEVICE_BRANCH }}"
-        git remote add origin "https://${{ github.actor }}:${{ github.event.inputs.GITHUB_TOKEN }}@github.com/${{ github.actor }}/${{ github.event.inputs.EMPTY_REPO }}.git"
-        git push -u origin "${{ github.event.inputs.DEVICE_BRANCH }}"
+      - name: Push to GitHub
+        if: ${{ inputs.PUSH_GITHUB == 'true' }}
+        run: |
+          git config --global user.email "callofduty.pubg786@gmail.com"
+          git config --global user.name "abrohim0786"
+          cd "$DEVICE_DIR" || { echo "Device tree directory not found!"; exit 1; }
+          git init
+          git add .
+          git commit -m "${{ inputs.COMMIT_MESSAGE }}"
+          git branch -M "${{ inputs.DEVICE_BRANCH }}"
+          git remote add origin "https://${{ github.actor }}:${{ inputs.GITHUB_TOKEN }}@github.com/${{ github.actor }}/${{ inputs.EMPTY_REPO }}.git"
+          git push -u origin "${{ inputs.DEVICE_BRANCH }}"
