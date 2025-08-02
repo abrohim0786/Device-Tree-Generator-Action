@@ -12,13 +12,13 @@ on:
         required: true
         default: 'android-12.1'
       GITHUB_TOKEN:
-        description: 'Your GitHub access token (Required for pushing to repository, must have repo permissions)'
+        description: 'Your GitHub access token (Required for pushing to repository)'
         required: true
         default: ''
       EMPTY_REPO:
-        description: 'Your empty repo name on GitHub (e.g., device_xiaomi_ares - DO NOT include .git!)'
+        description: 'Your empty repo name on GitHub (e.g., android_device_xiaomi_ares)'
         required: true
-        default: 'device_xiaomi_ares'
+        default: 'android_device_xiaomi_ares'
       COMMIT_MESSAGE:
         description: 'Your commit message (Optional)'
         required: true
@@ -55,83 +55,84 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y cpio zip
 
-    - name: Downloading .img file
+    - name: Download .img file
       run: |
-        wget -O boot.img ${{ github.event.inputs.DEVICE_IMG }}
-        ls -l
+        wget -O boot.img "${{ github.event.inputs.DEVICE_IMG }}"
+        ls -lh
         if [ -f ./recovery.img ]; then
-            echo "RECOVERY_TYPE=recovery" >> $GITHUB_ENV
-            echo "recovery.img file found!"
+          echo "RECOVERY_TYPE=recovery" >> $GITHUB_ENV
         elif [ -f ./boot.img ]; then
-            echo "RECOVERY_TYPE=boot" >> $GITHUB_ENV
-            echo "boot.img file found!"
+          echo "RECOVERY_TYPE=boot" >> $GITHUB_ENV
         elif [ -f ./vendor_boot.img ]; then
-            echo "RECOVERY_TYPE=vendor_boot" >> $GITHUB_ENV
-            echo "vendor_boot.img file found!"
+          echo "RECOVERY_TYPE=vendor_boot" >> $GITHUB_ENV
         else
-            echo "No Recovery file found!"
-            exit 1
+          echo "No Recovery image found!"; exit 1
         fi
 
     - name: Generate Device Tree
       run: |
         python3 -m twrpdtgen ./${{ env.RECOVERY_TYPE }}.img
-        ls -l output || echo "No output directory found"
 
     - name: Set Build Date
       run: |
         echo "BUILD_DATE=$(date +%Y%m%d)" >> $GITHUB_ENV
 
-    - name: Get Device Information
+    - name: Print output tree for debug
       run: |
+        echo "==== OUTPUT FOLDER STRUCTURE ===="
+        ls -lR output || echo "No output directory found!"
+        echo "================================="
+
+    - name: Prepare device folder and extract info
+      id: deviceinfo
+      run: |
+        # Move output to device/
         if [ -d output ]; then
-          mv ./output/ device
-        fi
-        ls -l device
-        # Try two-level traversal, fallback to one-level
-        if [ "$(find device -mindepth 2 -maxdepth 2 -type d | wc -l)" -gt 0 ]; then
-          cd device/*/
-          echo "DEVICE_ID=${PWD##*/}" >> $GITHUB_ENV
-          cd */
-          echo "DEVICE_IDD=${PWD##*/}" >> $GITHUB_ENV
+          mv output device
         else
-          cd device/
-          echo "DEVICE_ID=${PWD##*/}" >> $GITHUB_ENV
-          echo "DEVICE_IDD=${PWD##*/}" >> $GITHUB_ENV
+          echo "No output directory found!"; exit 1
         fi
+
+        # Find deepest directory with Android.mk or BoardConfig.mk (typical for device tree)
+        DEVICE_PATH=$(find device -type f \( -name "Android.mk" -o -name "BoardConfig.mk" \) | head -n 1)
+        if [ -z "$DEVICE_PATH" ]; then
+          # fallback to deepest directory
+          DEVICE_DIR=$(find device -type d | sort | tail -n 1)
+        else
+          DEVICE_DIR=$(dirname "$DEVICE_PATH")
+        fi
+
+        echo "DEVICE_DIR=$DEVICE_DIR" >> $GITHUB_ENV
+        DEVICE_ID=$(basename "$(dirname "$DEVICE_DIR")")
+        DEVICE_IDD=$(basename "$DEVICE_DIR")
+        echo "DEVICE_ID=$DEVICE_ID" >> $GITHUB_ENV
+        echo "DEVICE_IDD=$DEVICE_IDD" >> $GITHUB_ENV
+        echo "Device tree detected at: $DEVICE_DIR"
+        echo "Device folder name: $DEVICE_ID"
+        echo "Device subfolder name: $DEVICE_IDD"
 
     - name: Add to Zip
       run: |
-        zip -r ${{ env.DEVICE_ID }}_${{ env.DEVICE_IDD }}_tree.zip ./device/
+        zip -r "${{ env.DEVICE_ID }}_${{ env.DEVICE_IDD }}_tree.zip" ./device/
 
     - name: Release
       if: ${{ github.event.inputs.RELEASE_FILE }}
       uses: softprops/action-gh-release@v1
       with:
-        files: ${{ env.DEVICE_ID }}_${{ env.DEVICE_IDD }}_tree.zip
-        name: ${{ env.DEVICE_ID }} ${{ env.DEVICE_IDD }} device tree // ${{ env.BUILD_DATE }}
-        tag_name: ${{ github.run_id }}
-        body: |
-          Automated device tree release for ${{ env.DEVICE_ID }} ${{ env.DEVICE_IDD }} on ${{ env.BUILD_DATE }}
+        files: "${{ env.DEVICE_ID }}_${{ env.DEVICE_IDD }}_tree.zip"
+        name: "${{ env.DEVICE_ID }} ${{ env.DEVICE_IDD }} device tree // ${{ env.BUILD_DATE }}"
+        tag_name: "${{ github.run_id }}"
+        body: "Automated device tree release for ${{ env.DEVICE_ID }} ${{ env.DEVICE_IDD }} on ${{ env.BUILD_DATE }}"
 
     - name: Push to GitHub
       if: ${{ github.event.inputs.PUSH_GITHUB }}
       run: |
-        echo "Current directory:"
-        pwd
-        echo "Contents of device directory:"
-        ls -l device
-        # Try two-level traversal, fallback to one-level
-        if [ "$(find device -mindepth 2 -maxdepth 2 -type d | wc -l)" -gt 0 ]; then
-          cd device/*/*/
-        else
-          cd device/
-        fi
-        git init
         git config --global user.email "callofduty.pubg786@gmail.com"
         git config --global user.name "abrohim0786"
+        cd "$DEVICE_DIR" || { echo "Device tree directory not found!"; exit 1; }
+        git init
         git add .
         git commit -m "${{ github.event.inputs.COMMIT_MESSAGE }}"
-        git branch -M ${{ github.event.inputs.DEVICE_BRANCH }}
-        git remote add origin https://${{ github.actor }}:${{ github.event.inputs.GITHUB_TOKEN }}@github.com/${{ github.actor }}/${{ github.event.inputs.EMPTY_REPO }}.git
-        git push -u origin ${{ github.event.inputs.DEVICE_BRANCH }}
+        git branch -M "${{ github.event.inputs.DEVICE_BRANCH }}"
+        git remote add origin "https://${{ github.actor }}:${{ github.event.inputs.GITHUB_TOKEN }}@github.com/${{ github.actor }}/${{ github.event.inputs.EMPTY_REPO }}.git"
+        git push -u origin "${{ github.event.inputs.DEVICE_BRANCH }}"
