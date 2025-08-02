@@ -44,9 +44,13 @@ jobs:
     name: Device Tree Generator by ${{ github.actor }}
     runs-on: ubuntu-latest
     if: github.event.repository.owner.id == github.event.sender.id
-    permissions: write-all
+    permissions:
+      contents: write
+      actions: write # Added actions write permission
+      
     env:
       GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}
+      
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -113,7 +117,7 @@ jobs:
           zip -r "${{ env.DEVICE_ID }}_${{ env.DEVICE_IDD }}_tree.zip" ./device/
 
       - name: Release
-        if: ${{ inputs.RELEASE_FILE }}
+        if: ${{ inputs.RELEASE_FILE == 'true' }}
         uses: softprops/action-gh-release@v1
         with:
           files: ${{ env.DEVICE_ID }}_${{ env.DEVICE_IDD }}_tree.zip
@@ -123,7 +127,7 @@ jobs:
           token: ${{ env.GITHUB_TOKEN }}
 
       - name: Push to GitHub
-        if: ${{ inputs.PUSH_GITHUB }}
+        if: ${{ inputs.PUSH_GITHUB == 'true' }}
         run: |
           git config --global user.email "callofduty.pubg786@gmail.com"
           git config --global user.name "abrohim0786"
