@@ -58,7 +58,6 @@ jobs:
     - name: Download .img file
       run: |
         wget -O boot.img "${{ github.event.inputs.DEVICE_IMG }}"
-        ls -lh
         if [ -f ./recovery.img ]; then
           echo "RECOVERY_TYPE=recovery" >> $GITHUB_ENV
         elif [ -f ./boot.img ]; then
@@ -86,22 +85,18 @@ jobs:
     - name: Prepare device folder and extract info
       id: deviceinfo
       run: |
-        # Move output to device/
         if [ -d output ]; then
           mv output device
         else
           echo "No output directory found!"; exit 1
         fi
-
-        # Find deepest directory with Android.mk or BoardConfig.mk (typical for device tree)
+        # Find deepest dir with Android.mk or BoardConfig.mk
         DEVICE_PATH=$(find device -type f \( -name "Android.mk" -o -name "BoardConfig.mk" \) | head -n 1)
         if [ -z "$DEVICE_PATH" ]; then
-          # fallback to deepest directory
           DEVICE_DIR=$(find device -type d | sort | tail -n 1)
         else
           DEVICE_DIR=$(dirname "$DEVICE_PATH")
         fi
-
         echo "DEVICE_DIR=$DEVICE_DIR" >> $GITHUB_ENV
         DEVICE_ID=$(basename "$(dirname "$DEVICE_DIR")")
         DEVICE_IDD=$(basename "$DEVICE_DIR")
