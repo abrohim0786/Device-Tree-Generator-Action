@@ -41,6 +41,8 @@ jobs:
     if: github.event.repository.owner.id == github.event.sender.id
     permissions:
       contents: write
+      # Add permissions to create releases
+      releases: write
     env:
       GITHUB_TOKEN: ${{ github.event.inputs.GITHUB_TOKEN }}
 
@@ -118,6 +120,7 @@ jobs:
         name: "${{ env.DEVICE_ID }} ${{ env.DEVICE_IDD }} device tree // ${{ env.BUILD_DATE }}"
         tag_name: "${{ github.run_id }}"
         body: "Automated device tree release for ${{ env.DEVICE_ID }} ${{ env.DEVICE_IDD }} on ${{ env.BUILD_DATE }}"
+        token: ${{ github.token }}
 
     - name: Push to GitHub
       if: ${{ github.event.inputs.PUSH_GITHUB }}
