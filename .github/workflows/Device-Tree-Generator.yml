@@ -43,7 +43,7 @@ jobs:
       contents: write
       # Add permissions to create releases
   releases: write
-    env:
+  env:
       GITHUB_TOKEN: ${{ github.event.inputs.GITHUB_TOKEN }}
 
     steps:
