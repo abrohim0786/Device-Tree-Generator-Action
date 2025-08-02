@@ -8,11 +8,11 @@ on:
         required: true
         default: 'https://github.com/abrohim0786/OrangeFox-Recovery-Builder-2025/releases/download/16670367505/boot.img'
       DEVICE_BRANCH:
-        description: 'your device branch name (Optional)'
+        description: 'Your device branch name (Optional)'
         required: true
         default: 'android-12.1'
       EMPTY_REPO:
-        description: 'your empty repo name on github (Optional)'
+        description: 'your empty repo name on github (must match your actual repo, e.g., device_xiaomi_ares)'
         required: true
         default: 'device_xiaomi_ares'
       COMMIT_MESSAGE:
@@ -37,6 +37,10 @@ jobs:
     permissions:
       contents: write
     env:
+      # Use a PAT secret for pushing to another repo.
+      # Create a PAT and add it in Device-Tree-Generator-Action repo as MY_GH_PAT
+      PUSH_TOKEN: ${{ secrets.MY_GH_PAT }}
+      # Use default GITHUB_TOKEN for releases (works for local repo releases)
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
     - name: Checkout
@@ -45,7 +49,7 @@ jobs:
     - name: Getting tools ready 
       run: |
         pip3 install twrpdtgen 
-        sudo apt-get install cpio zip
+        sudo apt-get install -y cpio zip
 
     - name: Downloading .img file
       run: |
@@ -101,12 +105,12 @@ jobs:
     - name: Push to GitHub
       if: github.event.inputs.PUSH_GITHUB == 'true'
       run: |
-        git config --global user.email "abrohim0786"
-        git config --global user.name "callofduty.pubg786@gmail.com"
+        git config --global user.email "callofduty.pubg786@gmail.com"
+        git config --global user.name "abrohim0786"
         cd "$DEVICE_DIR" || exit 1
         git init
         git add .
         git commit -m "${{ github.event.inputs.COMMIT_MESSAGE }}"
         git branch -M ${{ github.event.inputs.DEVICE_BRANCH }}
-        git remote add origin https://abrohim0786:${{ secrets.GITHUB_TOKEN }}@github.com/abrohim0786/${{ github.event.inputs.EMPTY_REPO }}.git
+        git remote add origin https://${{ github.actor }}:${{ env.PUSH_TOKEN }}@github.com/${{ github.actor }}/${{ github.event.inputs.EMPTY_REPO }}.git
         git push -u origin ${{ github.event.inputs.DEVICE_BRANCH }}
