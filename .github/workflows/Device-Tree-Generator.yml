@@ -45,7 +45,8 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.repository.owner.id == github.event.sender.id
     permissions: write-all
-    
+    env:
+      GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -100,7 +101,7 @@ jobs:
           fi
           echo "DEVICE_DIR=$DEVICE_DIR" >> $GITHUB_ENV
           DEVICE_ID=$(basename "$(dirname "$DEVICE_DIR")")
-          DEVICE_IDD=$(basename "$DEVICE_DIR")
+          DEVICE_IDD=$(basename "$(dirname "$DEVICE_DIR")")
           echo "DEVICE_ID=$DEVICE_ID" >> $GITHUB_ENV
           echo "DEVICE_IDD=$DEVICE_IDD" >> $GITHUB_ENV
           echo "Device tree detected at: $DEVICE_DIR"
@@ -112,17 +113,17 @@ jobs:
           zip -r "${{ env.DEVICE_ID }}_${{ env.DEVICE_IDD }}_tree.zip" ./device/
 
       - name: Release
-        if: ${{ inputs.RELEASE_FILE == 'true' }}
+        if: ${{ inputs.RELEASE_FILE }}
         uses: softprops/action-gh-release@v1
         with:
           files: ${{ env.DEVICE_ID }}_${{ env.DEVICE_IDD }}_tree.zip
           name: ${{ env.DEVICE_ID }} ${{ env.DEVICE_IDD }} device tree // ${{ env.BUILD_DATE }}
           tag_name: ${{ github.run_id }}
           body: Automated device tree release for ${{ env.DEVICE_ID }} ${{ env.DEVICE_IDD }} on ${{ env.BUILD_DATE }}
-          token: ${{ inputs.GITHUB_TOKEN }}
+          token: ${{ env.GITHUB_TOKEN }}
 
       - name: Push to GitHub
-        if: ${{ inputs.PUSH_GITHUB == 'true' }}
+        if: ${{ inputs.PUSH_GITHUB }}
         run: |
           git config --global user.email "callofduty.pubg786@gmail.com"
           git config --global user.name "abrohim0786"
@@ -131,5 +132,5 @@ jobs:
           git add .
           git commit -m "${{ inputs.COMMIT_MESSAGE }}"
           git branch -M "${{ inputs.DEVICE_BRANCH }}"
-          git remote add origin "https://${{ github.actor }}:${{ inputs.GITHUB_TOKEN }}@github.com/${{ github.actor }}/${{ inputs.EMPTY_REPO }}.git"
+          git remote add origin "https://${{ github.actor }}:${{ env.GITHUB_TOKEN }}@github.com/${{ github.actor }}/${{ inputs.EMPTY_REPO }}.git"
           git push -u origin "${{ inputs.DEVICE_BRANCH }}"
