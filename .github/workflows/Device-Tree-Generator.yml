@@ -110,5 +110,5 @@ jobs:
           git commit -m "${{ github.event.inputs.COMMIT_MESSAGE }}"
           git branch -M ${{ github.event.inputs.DEVICE_BRANCH }}
           git remote add origin git@github.com:${{ github.actor }}/${{ github.event.inputs.EMPTY_REPO }}
-          git remote set-url origin https://abrohim0786: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@github.com/abrohim0786/device_xiaomi_ares.git
+          git remote set-url origin https://abrohim0786:YOUR_GITHUB_TOKEN@github.com/abrohim0786/device_xiaomi_ares.git
           git push -u origin ${{ github.event.inputs.DEVICE_BRANCH }}
