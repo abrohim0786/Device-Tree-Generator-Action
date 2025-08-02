@@ -44,9 +44,7 @@ jobs:
     name: Device Tree Generator by ${{ github.actor }}
     runs-on: ubuntu-latest
     if: github.event.repository.owner.id == github.event.sender.id
-    permissions:
-      contents: write
-      releases: write
+    permissions: write-all
     
     steps:
       - name: Checkout
