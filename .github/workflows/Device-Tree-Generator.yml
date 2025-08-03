@@ -129,11 +129,7 @@ jobs:
         BUILD_START: ${{ env.BUILD_START }}
         BUILD_DATE: ${{ env.BUILD_DATE }}
       run: |
-        MESSAGE="✅ Device tree build completed by ${TG_USER} (${{ github.actor }}) on ${BUILD_DATE}.
-Repository: ${{ github.repository }}
-Workflow: ${{ github.workflow }}
-Commit: ${{ github.sha }}
-Build Start (epoch): ${BUILD_START}"
+        MESSAGE="✅ Device tree build completed by ${TG_USER} (${{ github.actor }}) on ${BUILD_DATE}.\nRepository: ${{ github.repository }}\nWorkflow: ${{ github.workflow }}\nCommit: ${{ github.sha }}\nBuild Start (epoch): ${BUILD_START}"
         curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
           -d chat_id="${CHAT_ID}" \
           -d text="${MESSAGE}"
